@@ -30,11 +30,26 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect('/');
+}
+
 myDB(async client =>  {
   const myDataBase = await client.db('database').collection('users');
 
   app.route('/').get((req, res) => {
     res.render(__dirname + '/views/pug', {title: "Connected to Database", message: "Please login", showLogin: true });
+  });
+
+  app.post('/login', passport.authenticate('local', { failureRedirect: '/', successRedirect: '/profile' }), (req, res) => {
+    res.redirect('/profile');
+  });
+
+  app.get('/profile', ensureAuthenticated, (req, res) => {
+    res.render(__dirname + 'views/pug/profile');
   });
 
   passport.serializeUser((user, done) => {
@@ -46,23 +61,25 @@ myDB(async client =>  {
       done(null, doc);
     });
   });
+
+  passport.use(new LocalStrategy(
+    function(username, password, done) {
+      myDataBase.findOne({ username: username }, function(err, user) {
+        console.log('User: ' + username + ' attempted to login.');
+        if (err) { return done(err); }
+        if (!user) { return done(null, false, { message: 'Incorrect username.' }); }
+        if (password != user.password) { return done(null, false); }
+        return done(null, user);
+      });
+    }
+  ));
+
 }).catch(e => {
   app.route('/', (req, res) => {
     res.render('pug', { title: e, message: 'unable to login'})
   });
 });
 
-passport.use(new LocalStrategy(
-  function(username, password, done) {
-    myDataBase.findOne({ username: username }, function(err, user) {
-      console.log('User:' + username + 'attempted to login.');
-      if (err) { return done(err); }
-      if (!user) { return done(null, false, { message: 'Incorrect username.' }); }
-      if (password != user.password) { return done(null, false); }
-      return done(null, user);
-    });
-  }
-));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
