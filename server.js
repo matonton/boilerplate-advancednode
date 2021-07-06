@@ -7,6 +7,8 @@ console.log(`Current working directory (NodeJS): ${process.cwd()}`);
 const myDB = require('./connection');
 const fccTesting = require('./freeCodeCamp/fcctesting.js');
 const bcrypt = require('bcrypt');
+const routes = require('./routes');
+const auth = require('./auth');
 
 const app = express();
 app.set('view engine', 'pug')
@@ -31,18 +33,11 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.redirect('/');
-}
-
 myDB(async (client) =>  {
   const myDataBase = await client.db('database').collection('users');
 
-  routes(app, myDatabase);
-  auth(app, myDatabase);
+  routes(app, myDataBase);
+  auth(app, myDataBase);
 }).catch(e => {
   app.route('/', (req, res) => {
     res.render('pug', { title: e, message: 'unable to login'})
